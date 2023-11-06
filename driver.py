@@ -1,21 +1,19 @@
+from functools import partial
+import matplotlib
 import matplotlib.pyplot as plt
+
 import numpy as np
 import numpy.linalg as la
-from tqdm import tqdm
 
 from rbf.rbf import PHS
-from rbf.stencil import Stencil, poly_powers, poly_apply
+from rbf.interpolate import interpolate
 
-# only working without polynomials right now
+from scipy.special import roots_chebyt as cheb
+from tqdm import tqdm
 
-xs, ys = np.meshgrid(*2 * (np.linspace(0, 1, 11),))
-points = np.array([xs.ravel(), ys.ravel()]).T
-rbf = PHS(3)
-deg = 2
-stencil = Stencil(points)
-
-
+########################
 # two test functions
+########################
 def Frankes_function(x, y):
     """A common function to test multidimensional interpolation."""
     return (
@@ -34,38 +32,91 @@ def poly_test(x, y):
 # test_func = poly_test
 test_func = Frankes_function
 
-xs_dense, ys_dense = np.meshgrid(*2 * (np.linspace(0, 1, 201),))
+ 
+########################
+# Dense sample points
+########################
+xs_dense, ys_dense = np.meshgrid(np.linspace(0, 1, 201), np.linspace(0, 1, 201))
 fs_dense = test_func(xs_dense, ys_dense)
 
-plt.figure("Test Function")
-plt.pcolormesh(xs_dense, ys_dense, fs_dense)
-plt.plot(points[:, 0], points[:, 1], "k.")
+########################
+# RBF sample points
+########################
+
+# Cartesian points
+xs, ys = np.meshgrid(
+    np.linspace(np.min(xs_dense), np.max(xs_dense), 11),
+    np.linspace(np.min(ys_dense), np.max(ys_dense), 11),
+)
+
+
+# Chebshev points
+# def cheb_nodes_1D(n, x_min, x_max):
+#     points = (cheb(n)[0] + 1)/2
+#     points = (x_max - x_min)*points + x_min
+#     return points
+#
+#
+# xs, ys = np.meshgrid(
+#         cheb_nodes_1D(15, np.min(xs_dense), np.max(xs_dense)),
+#         cheb_nodes_1D(15, np.min(ys_dense), np.max(ys_dense))
+# )
+
+# circle for singular testing
+# angles = np.linspace(-np.pi, np.pi, 8, endpoint=False)
+# xs = np.cos(angles)/2
+# ys = np.sin(angles)/2
+
+points = np.array([xs.ravel(), ys.ravel()]).T
+# add extra points
+# points = np.concatenate((points, [(0.45, 0.75), (0.45, 0.85), (0.55, 0.6)]))
+# points = np.concatenate((points, [(0.45, 0.77)]))
 
 fs = test_func(points[:, 0], points[:, 1])
-rbf_weights, poly_weights = stencil.interpolation_weights(fs, rbf, deg)
 
+########################
+# interpolate
+########################
+# rbf = PHS(3)
+# poly_deg = 2
+# approx = interpolate(points=points, fs=fs, rbf=rbf, poly_deg=poly_deg)
+approx = interpolate(points=points, fs=fs)
 
-def eval_f(x, y):
-    z = np.array([x, y])
-    return sum(
-        w * rbf(la.norm(z - point)) for w, point in zip(rbf_weights, points)
-    ) + sum(
-        w * poly_apply(z, pows)
-        for w, pows in zip(poly_weights, poly_powers(dim=2, max_deg=deg))
-    )
-
-
-eval_point = 0.21, 0.23
-print(eval_f(*eval_point))
-print(test_func(*eval_point))
+########################
+# measure errors
+########################
+eval_point = np.array((0.21, 0.23))
+print(f"eval point = {eval_point}")
+print(f"Function value = {test_func(*eval_point)}")
+print(f"Interpolation error = {approx(eval_point) - test_func(*eval_point): .3E}")
 
 errors = np.empty(ys_dense.shape)
 for index, (x, y) in tqdm(
     enumerate(zip(xs_dense.ravel(), ys_dense.ravel())), total=len(xs_dense.ravel())
 ):
-    errors.ravel()[index] = abs(eval_f(x, y) - test_func(x, y))
+    errors.ravel()[index] = abs(approx(np.array((x, y))) - test_func(x, y))
 
-print(np.max(errors))
+print(f"max error over domain: {np.max(errors): .3E}")
 
-plt.figure()
-plt.pcolormesh(xs_dense, ys_dense, errors)
+plt.close()
+
+fig = plt.figure("RBF interpolation error", figsize=(8, 4))
+grid = matplotlib.gridspec.GridSpec(1, 7)
+ax_function = fig.add_subplot(grid[0, :3])
+ax_error = fig.add_subplot(grid[0, 3:6])
+ax_color_bar = fig.add_subplot(grid[0, 6])
+
+# plot function and points
+ax_function.set_title("Test Function")
+ax_function.pcolormesh(xs_dense, ys_dense, fs_dense)
+ax_function.plot(points[:, 0], points[:, 1], "r.")
+
+ax_error.set_title("Error")
+ax_error.pcolormesh(xs_dense, ys_dense, errors)
+error_color_norm = matplotlib.cm.ScalarMappable(
+    matplotlib.colors.Normalize(vmin=0, vmax=np.max(errors))
+)
+plt.colorbar(error_color_norm, cax=ax_color_bar)
+ax_error.plot(points[:, 0], points[:, 1], "r.")
+plt.tight_layout()
+plt.show()
