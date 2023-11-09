@@ -6,6 +6,7 @@ import numpy as np
 import numpy.linalg as la
 
 from rbf.rbf import PHS
+from rbf.points import UnitSquare
 from rbf.interpolate import interpolate
 
 from scipy.special import roots_chebyt as cheb
@@ -43,11 +44,13 @@ fs_dense = test_func(xs_dense, ys_dense)
 # RBF sample points
 ########################
 
+xs, ys = UnitSquare(31).points.T
+
 # Cartesian points
-xs, ys = np.meshgrid(
-    np.linspace(np.min(xs_dense), np.max(xs_dense), 11),
-    np.linspace(np.min(ys_dense), np.max(ys_dense), 11),
-)
+# xs, ys = np.meshgrid(
+#     np.linspace(np.min(xs_dense), np.max(xs_dense), 11),
+#     np.linspace(np.min(ys_dense), np.max(ys_dense), 11),
+# )
 
 
 # Chebshev points
@@ -77,10 +80,10 @@ fs = test_func(points[:, 0], points[:, 1])
 ########################
 # interpolate
 ########################
-# rbf = PHS(3)
-# poly_deg = 2
-# approx = interpolate(points=points, fs=fs, rbf=rbf, poly_deg=poly_deg)
-approx = interpolate(points=points, fs=fs)
+rbf = PHS(3)
+poly_deg = 5
+approx = interpolate(points=points, fs=fs, rbf=rbf, poly_deg=poly_deg)
+# approx = interpolate(points=points, fs=fs)
 
 ########################
 # measure errors

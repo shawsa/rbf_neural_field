@@ -12,8 +12,22 @@ class RBF(ABC):
         ...
 
 
-class PHS(RBF):
+class OddPHS(RBF):
+    def __init__(self, deg: int):
+        assert type(deg) is int
+        assert deg > 0
+        assert deg % 2 == 1
+        self.deg = deg
 
+    def __call__(self, r):
+        return r**self.deg
+
+    def dr(self, r):
+        ####################################
+        return 
+
+
+class EvenPHS(RBF):
     def __init__(self, deg: int):
         assert type(deg) is int
         assert deg > 0
@@ -21,10 +35,15 @@ class PHS(RBF):
         self.even = deg % 2 == 0
 
     def __call__(self, r):
-        if self.even:
-            ret = np.empty(r.shape)
-            mask = ret == 0
-            ret[mask] = 0
-            ret[~mask] = r[~mask]**self.deg * np.log(r[~mask])
-            return ret
-        return r**self.deg
+        # account for removeable singularity at r = 0
+        ret = np.empty(r.shape)
+        mask = ret == 0
+        ret[mask] = 0
+        ret[~mask] = r[~mask]**self.deg * np.log(r[~mask])
+        return ret
+
+
+def PHS(deg: int) -> RBF:
+    if deg % 2 == 0:
+        return EvenPHS(deg)
+    return OddPHS(deg)
