@@ -7,10 +7,11 @@ import numpy.linalg as la
 
 from rbf.rbf import PHS
 from rbf.points import UnitSquare
-from rbf.interpolate import interpolate
+from rbf.interpolate import interpolate, LocalInterpolator
 
 from scipy.special import roots_chebyt as cheb
 from tqdm import tqdm
+
 
 ########################
 # two test functions
@@ -33,18 +34,19 @@ def poly_test(x, y):
 # test_func = poly_test
 test_func = Frankes_function
 
- 
+
 ########################
 # Dense sample points
 ########################
-xs_dense, ys_dense = np.meshgrid(np.linspace(0, 1, 201), np.linspace(0, 1, 201))
+xs_dense, ys_dense = np.meshgrid(np.linspace(0, 1, 401), np.linspace(0, 1, 401))
+points_dense = np.block([[xs_dense.ravel()], [ys_dense.ravel()]]).T
 fs_dense = test_func(xs_dense, ys_dense)
 
 ########################
 # RBF sample points
 ########################
 
-xs, ys = UnitSquare(31).points.T
+xs, ys = UnitSquare(21, verbose=True).points.T
 
 # Cartesian points
 # xs, ys = np.meshgrid(
@@ -81,8 +83,12 @@ fs = test_func(points[:, 0], points[:, 1])
 # interpolate
 ########################
 rbf = PHS(3)
-poly_deg = 5
-approx = interpolate(points=points, fs=fs, rbf=rbf, poly_deg=poly_deg)
+poly_deg = 3
+stencil_size = 14
+approx = LocalInterpolator(
+    points=points, fs=fs, rbf=rbf, poly_deg=poly_deg, stencil_size=stencil_size
+)
+# approx = interpolate(points=points, fs=fs, rbf=rbf, poly_deg=poly_deg)
 # approx = interpolate(points=points, fs=fs)
 
 ########################
@@ -91,6 +97,7 @@ approx = interpolate(points=points, fs=fs, rbf=rbf, poly_deg=poly_deg)
 eval_point = np.array((0.21, 0.23))
 print(f"eval point = {eval_point}")
 print(f"Function value = {test_func(*eval_point)}")
+print(f"Interpolant value = {approx(eval_point)}")
 print(f"Interpolation error = {approx(eval_point) - test_func(*eval_point): .3E}")
 
 errors = np.empty(ys_dense.shape)

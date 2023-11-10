@@ -13,7 +13,7 @@ class UnitSquare(PointCloud):
     boundary.
     """
 
-    def __init__(self, N: int, auto_settle=True):
+    def __init__(self, N: int, auto_settle=True, verbose=False):
         self.N = N
         xs, ys = np.meshgrid(*2 * (np.linspace(0, 1, N),))
         points = np.block([[xs.ravel()], [ys.ravel()]]).T
@@ -32,7 +32,7 @@ class UnitSquare(PointCloud):
             sorted_points, num_interior=N**2 - num_boundary, num_boundary=num_boundary
         )
         if auto_settle:
-            self.auto_settle()
+            self.auto_settle(verbose=verbose)
 
     def force_shape(self, x):
         return (1 + np.tanh(-self.N*2 * x)) / 2
@@ -44,26 +44,29 @@ class UnitSquare(PointCloud):
         force[1] = self.force_shape(y) - self.force_shape(1 - y)
         return 4 * force
 
-    def settle(self, rate: float, repeat: int = 1):
+    def settle(self, rate: float, repeat: int = 1, verbose=False):
         kernel = GaussianRepulsionKernel(height=4, shape=2 / self.N)
         # rate = 0.2 / N
         # radius = 3.1 / N
         num_neighbors = 18
-        super(UnitSquare, self).settle(
-            kernel=kernel,
-            rate=rate / self.N,
-            num_neighbors=num_neighbors,
-            force=self.boundary_force,
-        )
+        my_iter = range(repeat)
+        if verbose:
+            my_iter = tqdm(my_iter)
+        for _ in my_iter:
+            super(UnitSquare, self).settle(
+                kernel=kernel,
+                rate=rate / self.N,
+                num_neighbors=num_neighbors,
+                force=self.boundary_force,
+            )
 
-    def auto_settle(self):
+    def auto_settle(self, verbose=False):
         for rate, repeat in [
             (2, 100),
             (0.1, 100),
             (0.05, 100),
         ]:
-            for _ in range(repeat):
-                self.settle(rate=rate)
+            self.settle(rate=rate, repeat=repeat, verbose=verbose)
 
 
 if __name__ == "__main__":

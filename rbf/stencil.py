@@ -5,22 +5,21 @@ Stencil class for RBF interpolation.
 from functools import cache
 import numpy as np
 import numpy.linalg as la
-from .poly_utils import poly_basis_dim, poly_powers, poly_apply
-from .rbf import RBF
+from .poly_utils import poly_basis_dim, poly_powers
+from .rbf import RBF, pairwise_diff, pairwise_dist
 
 
 class Stencil:
     def __init__(
         self,
         points: np.ndarray[float],
-        validate=True,
     ):
-        shape = points[0].shape
-        if validate:
-            assert len(shape) == 1
-            for point in points[1:]:
-                assert point.shape == shape
-        self.dim = shape[0]
+        shape = points.shape
+        if len(shape) == 1:
+            self.dim = 1
+        else:
+            assert len(shape) == 2
+            self.dim = shape[1]
         self.points = points
 
         self.upper_bounds = np.max(points, axis=0)
@@ -44,19 +43,20 @@ class Stencil:
     @property
     def pairwise_diff(self) -> np.ndarray[float]:
         points = self.scaled_points
-        return [[la.norm(x - y) for x in points] for y in points]
+        return pairwise_diff(points, points)
 
     @property
     def dist_mat(self) -> np.ndarray[float]:
-        return np.abs(self.pairwise_diff)
+        points = self.scaled_points
+        return pairwise_dist(points, points)
 
     def rbf_mat(self, rbf: RBF):
         return rbf(self.dist_mat)
 
     def poly_mat(self, poly_deg: int) -> np.ndarray[float]:
         P = np.ones((self.num_points, poly_basis_dim(self.dim, poly_deg)))
-        for index, pows in enumerate(poly_powers(self.dim, max_deg=poly_deg)):
-            P[:, index] = poly_apply(self.scaled_points, pows)
+        for index, poly in enumerate(poly_powers(self.dim, max_deg=poly_deg)):
+            P[:, index] = poly(self.scaled_points)
         return P
 
     def interpolation_matrix(self, rbf: RBF, poly_deg: int = -1) -> np.ndarray[float]:
